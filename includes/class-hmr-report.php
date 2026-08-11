@@ -37,6 +37,36 @@ class TGS_HMR_Report
         return $wpdb->base_prefix . 'global_htsoft_ledger_item_mua';
     }
 
+    /**
+     * kind => khối chứng từ.
+     *
+     * CỐ Ý khai lại thay vì gọi TGS_HMI_DB::kinds() của plugin nạp: hai plugin
+     * độc lập, tắt plugin nạp thì báo cáo vẫn phải xem được dữ liệu đã có chứ
+     * không lỗi trắng màn. Thêm loại mới thì sửa cả hai chỗ.
+     */
+    public static function kinds()
+    {
+        return [
+            'sale'       => 'sales',
+            'return'     => 'sales',
+            'purchase'   => 'purchase',
+            'sup_return' => 'purchase',
+        ];
+    }
+
+    /** Tên loại chứng từ để hiển thị */
+    public static function kind_label($kind)
+    {
+        $labels = [
+            'sale'       => 'Phiếu bán hàng',
+            'return'     => 'Hàng bán trả lại',
+            'purchase'   => 'Phiếu nhập mua',
+            'sup_return' => 'Trả nhà cung cấp',
+        ];
+
+        return isset($labels[$kind]) ? $labels[$kind] : (string) $kind;
+    }
+
     /** Lớp tính tiền dùng chung — thiếu thì không dựng số, xem chú thích ở trên */
     public static function money_ready()
     {
@@ -68,16 +98,28 @@ class TGS_HMR_Report
             $params = array_merge($params, $blogs);
         }
 
+        /* Lọc theo MÃ KHO (phân kho), không theo mã chi nhánh — xem chú thích ở
+           TGS_HMI_DB khi tạo bảng */
         $zones = isset($filters['zones']) ? array_values(array_filter((array) $filters['zones'], 'strlen')) : [];
         if ($zones) {
-            $where[] = "{$alias}.site_code IN (" . implode(',', array_fill(0, count($zones), '%s')) . ')';
+            $where[] = "{$alias}.zone_code IN (" . implode(',', array_fill(0, count($zones), '%s')) . ')';
             $params = array_merge($params, $zones);
         }
 
-        $kind = isset($filters['kind']) ? $filters['kind'] : 'sale';
-        if ($kind === 'sale' || $kind === 'return') {
+        /*
+         * 'all' nghĩa là cả hai chiều CỦA KHỐI ĐANG XEM, không phải cả bốn loại:
+         * màn bán không được lẫn phiếu nhập mua vào.
+         */
+        $group = (isset($filters['group']) && $filters['group'] === 'purchase') ? 'purchase' : 'sales';
+        $kind  = isset($filters['kind']) ? $filters['kind'] : 'all';
+        $kinds = self::kinds();
+
+        if (isset($kinds[$kind]) && $kinds[$kind] === $group) {
             $where[] = "{$alias}.kind = %s";
             $params[] = $kind;
+        } else {
+            $where[] = "{$alias}.doc_group = %s";
+            $params[] = $group;
         }
 
         $date_col = ($alias === 'i') ? 'row_date' : 'voucher_date';
@@ -105,7 +147,7 @@ class TGS_HMR_Report
 
         list($where_sql, $params) = self::build_where('i', $filters);
 
-        $sql = "SELECT i.*, l.id AS ledger_id, l.voucher_date, l.raw_warehouse
+        $sql = "SELECT i.*, l.id AS ledger_id, l.voucher_date, l.raw_warehouse, l.site_code AS branch_code
                   FROM {$item} i
                   JOIN {$ledger} l ON l.id = i.ledger_id
                  WHERE {$where_sql}
@@ -133,7 +175,16 @@ class TGS_HMR_Report
         $price    = (float) $r['price'];
         $ck       = (float) $r['discount_amount'];
         $thue_pct = (float) $r['tax_percent'];
-        $is_return = ($r['kind'] === 'return');
+
+        /*
+         * Mọi cột lưu trong DB đều DƯƠNG. Chiều đến từ hai nguồn:
+         *   kind        — phiếu trả lại
+         *   is_negative — dòng phần mềm cũ ghi âm (chiết khấu NCC trong phiếu nhập)
+         * Xem quy ước dấu ở đầu TGS_HMI_DB.
+         */
+        $is_return = ($r['kind'] === 'return' || $r['kind'] === 'sup_return');
+        $am        = !empty($r['is_negative']);
+        $nguoc     = ($is_return || $am);
 
         $m = TGS_Money::line($qty, $price, $ck, $thue_pct);
 
@@ -145,13 +196,32 @@ class TGS_HMR_Report
         $gia_dvcb   = self::don_gia_lam_tron($goc, $qty, $thanh_tien);
         $ck_hien    = max(0.0, $gia_dvcb * $qty - $thanh_tien);
 
+        /*
+         * Dòng chỉ có giá trị, không có số lượng (chiết khấu doanh số, NCC bù
+         * giá) — công thức SL × ĐG ra 0 nên phải lấy thẳng số của phần mềm cũ,
+         * nếu không khoản đó biến mất khỏi tổng. Xem TGS_HMI_Money.
+         */
+        $goc_htsoft = (float) $r['amount_htsoft'];
+        if ($thanh_tien == 0 && $goc_htsoft != 0) {
+            $thanh_tien = round($goc_htsoft);
+            $gia_dvcb   = 0.0;
+            $ck_hien    = 0.0;
+        }
+
         $unit_qty = (float) $r['unit_quantity'];
         $ratio    = ($unit_qty > 0 && $qty > 0) ? ($qty / $unit_qty) : 1.0;
 
         return [
             'id'        => intval($r['id']),
             'ledger_id' => intval($r['ledger_id']),
-            'kho'       => (string) ($r['raw_warehouse'] !== '' ? $r['raw_warehouse'] : $r['site_code']),
+            'kind'      => (string) $r['kind'],
+            /* Cột Kho hiện PHÂN KHO, vì đó mới là điểm tồn thật của dòng hàng */
+            'kho'       => (string) ($r['zone_raw'] !== '' ? $r['zone_raw'] : $r['zone_code']),
+            'chi_nhanh' => (string) ($r['raw_warehouse'] !== '' ? $r['raw_warehouse'] : $r['site_code']),
+            'ncc'       => (string) (isset($r['supplier_name']) ? $r['supplier_name'] : ''),
+            'ncc_ma'    => (string) (isset($r['supplier_code']) ? $r['supplier_code'] : ''),
+            'so_hd'     => (string) (isset($r['invoice_no']) ? $r['invoice_no'] : ''),
+            'ghi_chu'   => (string) (isset($r['note']) ? $r['note'] : ''),
             'sku'       => (string) $r['product_sku'],
             'ten'       => (string) $r['product_name'],
             'ngay'      => (string) $r['row_date'],
@@ -161,13 +231,17 @@ class TGS_HMR_Report
             /* Mã lý do của phần mềm cũ nếu file có, không thì suy từ loại phiếu */
             'ly_do'     => (string) ($r['reason'] !== '' ? $r['reason'] : ($is_return ? 'NTH1' : 'XBA')),
             'tra_lai'   => $is_return,
+            /* Dòng ghi âm bên phần mềm cũ — hiện dấu hiệu riêng, không lẫn với
+               phiếu trả lại vì hai thứ khác nghiệp vụ */
+            'am'        => $am,
             'qty'       => $qty,
             'gia'       => $gia_dvcb,
             'gia_dvt'   => round($gia_dvcb * max(1.0, $ratio)),
             'ck'        => $ck_hien,
             'tien'      => $thanh_tien,
-            /* Dòng bán cộng vào, dòng trả lại TRỪ RA */
-            'doanh_thu' => $is_return ? -$thanh_tien : $thanh_tien,
+            /* Cột duy nhất mang chiều: bán/nhập cộng vào, trả lại và dòng ghi
+               âm trừ ra. Các cột còn lại luôn dương cho dễ đọc. */
+            'doanh_thu' => $nguoc ? -$thanh_tien : $thanh_tien,
             'thue'      => $thue,
             /* Hiệu của hai số ĐÃ làm tròn, để cột này + Thuế = Thành tiền */
             'truoc_thue' => $thanh_tien - $thue,
@@ -224,23 +298,39 @@ class TGS_HMR_Report
 
         $rows = [];
         foreach ((array) $raw as $r) {
-            $is_return  = ($r['kind'] === 'return');
-            $thanh_tien = round((float) $r['total_amount']);
+            $is_return = ($r['kind'] === 'return' || $r['kind'] === 'sup_return');
+
+            /*
+             * ⚠️ Tổng trong DB ĐÃ MANG DẤU (xem quy ước dấu ở TGS_HMI_DB), nên
+             * KHÔNG được nhân dấu lần nữa — làm thế là phiếu trả lại hiện thành
+             * số dương và cộng vào thay vì trừ ra.
+             *
+             * Các cột hiển thị lấy trị tuyệt đối cho thống nhất với màn chi
+             * tiết; chỉ cột "giá trị thuần" giữ dấu.
+             */
+            $signed     = round((float) $r['total_amount']);
+            $thanh_tien = abs($signed);
 
             $rows[] = [
                 'id'         => intval($r['id']),
                 'pbh'        => (string) $r['voucher_code'],
-                'loai'       => $is_return ? 'Hàng trả lại' : 'Phiếu bán hàng',
+                'kind'       => (string) $r['kind'],
+                'loai'       => self::kind_label($r['kind']),
                 'tra_lai'    => $is_return,
-                'kho'        => (string) ($r['raw_warehouse'] !== '' ? $r['raw_warehouse'] : $r['site_code']),
+                'kho'        => (string) ($r['zone_raw'] !== '' ? $r['zone_raw'] : $r['zone_code']),
+                'chi_nhanh'  => (string) ($r['raw_warehouse'] !== '' ? $r['raw_warehouse'] : $r['site_code']),
+                'ncc'        => (string) $r['supplier_name'],
+                'ncc_ma'     => (string) $r['supplier_code'],
+                'so_hd'      => (string) $r['invoice_no'],
                 'ngay'       => (string) $r['voucher_date'],
                 'so_mon'     => intval($r['items_count']),
-                'qty'        => (float) $r['total_quantity'],
-                'ck'         => round((float) $r['total_discount']),
-                'thue'       => round((float) $r['total_tax']),
-                'truoc_thue' => round((float) $r['total_before_tax']),
+                'qty'        => abs((float) $r['total_quantity']),
+                'ck'         => abs(round((float) $r['total_discount'])),
+                'thue'       => abs(round((float) $r['total_tax'])),
+                'truoc_thue' => abs(round((float) $r['total_before_tax'])),
                 'tien'       => $thanh_tien,
-                'doanh_thu'  => $is_return ? -$thanh_tien : $thanh_tien,
+                /* Cột duy nhất mang chiều — lấy thẳng tổng đã ký của phiếu */
+                'doanh_thu'  => $signed,
                 'kh_ten'     => (string) $r['customer_name'],
                 'kh_ma'      => (string) $r['customer_code'],
                 'nv_ten'     => (string) $r['staff_name'],
@@ -290,6 +380,7 @@ class TGS_HMR_Report
             $item['raw_warehouse'] = $ledger['raw_warehouse'];
             $row = self::build_row($item);
 
+
             $total['qty']        += $row['qty'];
             $total['ck']         += $row['ck'];
             $total['thue']       += $row['thue'];
@@ -309,8 +400,12 @@ class TGS_HMR_Report
                 'id'            => $ledger_id,
                 'voucher_code'  => (string) $ledger['voucher_code'],
                 'kind'          => (string) $ledger['kind'],
-                'loai'          => $ledger['kind'] === 'return' ? 'Phiếu hàng bán trả lại' : 'Phiếu bán hàng',
-                'kho'           => (string) ($ledger['raw_warehouse'] !== '' ? $ledger['raw_warehouse'] : $ledger['site_code']),
+                'loai'          => self::kind_label($ledger['kind']),
+                'kho'           => (string) ($ledger['zone_raw'] !== '' ? $ledger['zone_raw'] : $ledger['zone_code']),
+                'chi_nhanh'     => (string) ($ledger['raw_warehouse'] !== '' ? $ledger['raw_warehouse'] : $ledger['site_code']),
+                'supplier_name' => (string) $ledger['supplier_name'],
+                'supplier_code' => (string) $ledger['supplier_code'],
+                'invoice_no'    => (string) $ledger['invoice_no'],
                 'site_code'     => (string) $ledger['site_code'],
                 'blog_id'       => intval($ledger['blog_id']),
                 'shop_name'     => $shop,

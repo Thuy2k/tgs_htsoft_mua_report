@@ -37,15 +37,22 @@ class TGS_HMR_Ajax
         $blog_ids = isset($_POST['blog_ids']) ? (array) $_POST['blog_ids'] : [];
         $zones    = isset($_POST['zones']) ? (array) $_POST['zones'] : [];
 
-        $kind = isset($_POST['loai']) ? sanitize_text_field($_POST['loai']) : 'sale';
-        if (!in_array($kind, ['sale', 'return', 'all'], true)) {
-            $kind = 'sale';
+        /*
+         * 'loai' là kind cụ thể hoặc 'all'; 'group' quyết định phạm vi của
+         * 'all' — màn bán không được kéo phiếu mua vào và ngược lại.
+         */
+        $kind = isset($_POST['loai']) ? sanitize_text_field($_POST['loai']) : 'all';
+        if (!array_key_exists($kind, TGS_HMR_Report::kinds()) && $kind !== 'all') {
+            $kind = 'all';
         }
+
+        $group = (isset($_POST['group']) && $_POST['group'] === 'purchase') ? 'purchase' : 'sales';
 
         return [
             'blog_ids'  => array_map('intval', $blog_ids),
             'zones'     => array_map('sanitize_text_field', $zones),
             'kind'      => $kind,
+            'group'     => $group,
             'date_from' => self::date($_POST['date_from'] ?? ''),
             'date_to'   => self::date($_POST['date_to'] ?? ''),
         ];

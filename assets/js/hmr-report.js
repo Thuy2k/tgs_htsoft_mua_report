@@ -362,16 +362,24 @@
 
         $('#hmrModalTitle').html(esc(h.loai) + ' — <strong>' + esc(h.voucher_code) + '</strong>');
 
+        /* Phiếu mua và phiếu bán khác nhau ở đối tác: NCC hay khách hàng */
+        var isBuy = (h.kind === 'purchase' || h.kind === 'sup_return');
+
         var meta = '<div class="hmr-vch__meta">'
             + '<div><span>Kho</span><b>' + esc(h.kho) + '</b></div>'
+            + '<div><span>Chi nhánh</span><b>' + esc(h.chi_nhanh || '—') + '</b></div>'
             + '<div><span>Website</span><b>' + esc(h.shop_name || (h.blog_id ? ('#' + h.blog_id) : 'chưa khớp')) + '</b></div>'
             + '<div><span>Ngày</span><b>' + ngay(h.voucher_date) + '</b></div>'
-            + '<div><span>Khách hàng</span><b>' + esc(h.customer_name || '—')
-                + (h.customer_code ? ' <i>(' + esc(h.customer_code) + ')</i>' : '') + '</b></div>'
+            + (isBuy
+                ? '<div><span>Nhà cung cấp</span><b>' + esc(h.supplier_name || '—')
+                    + (h.supplier_code ? ' <i>(' + esc(h.supplier_code) + ')</i>' : '') + '</b></div>'
+                  + '<div><span>Số hoá đơn</span><b>' + esc(h.invoice_no || '—') + '</b></div>'
+                : '<div><span>Khách hàng</span><b>' + esc(h.customer_name || '—')
+                    + (h.customer_code ? ' <i>(' + esc(h.customer_code) + ')</i>' : '') + '</b></div>'
+                  + '<div><span>Kênh bán</span><b>' + esc(h.channel || '—') + '</b></div>')
             + '<div><span>Nhân viên</span><b>' + esc(h.staff_name || '—')
                 + (h.staff_code ? ' <i>(' + esc(h.staff_code) + ')</i>' : '') + '</b></div>'
             + '<div><span>Hình thức TT</span><b>' + esc(h.payment_label || '—') + '</b></div>'
-            + '<div><span>Kênh bán</span><b>' + esc(h.channel || '—') + '</b></div>'
             /* CỐ Ý không hiện tên file nguồn: nhìn thấy tên file Excel là lộ ngay
                dữ liệu được nạp vào chứ không phát sinh tại chỗ. Cột source_file
                vẫn còn trong DB để truy vết khi cần. */

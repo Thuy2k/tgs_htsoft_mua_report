@@ -61,7 +61,10 @@ class TGS_HMR_Sites
      *
      * @return array ['sites' => [...], 'zones' => [blog_id => [...]]]
      */
-    public static function filter_bootstrap()
+    /**
+     * @param string $group 'sales' | 'purchase' — mỗi khối một bộ mã kho riêng
+     */
+    public static function filter_bootstrap($group = 'sales')
     {
         global $wpdb;
 
@@ -82,15 +85,30 @@ class TGS_HMR_Sites
          * Nhãn lấy MIN(raw_warehouse): dạng còn số 0 đầu, đúng thứ hiện trên
          * phần mềm cũ nên dễ đối chiếu bằng mắt.
          */
+        /*
+         * Bộ lọc dựng riêng cho từng KHỐI: mã kho của phiếu mua (08-HH) khác
+         * hẳn mã kho của phiếu bán (mã shop). Trộn chung thì hai màn nào cũng
+         * hiện cả đống mã không dùng được.
+         *
+         * Chi nhánh gộp theo site_code; mã kho gộp theo zone_code — kho tổng có
+         * nhiều phân kho dưới một chi nhánh.
+         */
+        $group = ($group === 'purchase') ? 'purchase' : 'sales';
+
         $rows = $wpdb->get_results(
-            "SELECT blog_id, site_code,
-                    MIN(raw_warehouse) AS raw_warehouse,
-                    COUNT(*) AS vouchers,
-                    MIN(voucher_date) AS first_date,
-                    MAX(voucher_date) AS last_date
-               FROM {$table}
-              GROUP BY blog_id, site_code
-              ORDER BY blog_id ASC, site_code ASC",
+            $wpdb->prepare(
+                "SELECT blog_id, site_code, zone_code,
+                        MIN(raw_warehouse) AS raw_warehouse,
+                        MIN(zone_raw) AS zone_raw,
+                        COUNT(*) AS vouchers,
+                        MIN(voucher_date) AS first_date,
+                        MAX(voucher_date) AS last_date
+                   FROM {$table}
+                  WHERE doc_group = %s
+                  GROUP BY blog_id, site_code, zone_code
+                  ORDER BY blog_id ASC, site_code ASC, zone_code ASC",
+                $group
+            ),
             ARRAY_A
         );
 
@@ -103,9 +121,11 @@ class TGS_HMR_Sites
         $zones = [];
 
         foreach ($rows as $row) {
-            $blog_id = intval($row['blog_id']);
-            $code    = (string) $row['site_code'];
-            $raw     = (string) ($row['raw_warehouse'] !== '' ? $row['raw_warehouse'] : $code);
+            $blog_id   = intval($row['blog_id']);
+            $code      = (string) $row['site_code'];
+            $raw       = (string) ($row['raw_warehouse'] !== '' ? $row['raw_warehouse'] : $code);
+            $zone      = (string) $row['zone_code'];
+            $zone_raw  = (string) ($row['zone_raw'] !== '' ? $row['zone_raw'] : $zone);
 
             /*
              * Mã kho khớp website → gộp về CHI NHÁNH (một website một dòng),
@@ -135,8 +155,8 @@ class TGS_HMR_Sites
             $sites[$key]['vouchers'] += intval($row['vouchers']);
 
             $zones[$key][] = [
-                'zone_code' => $code,
-                'label'     => $raw,
+                'zone_code' => $zone,
+                'label'     => $zone_raw,
                 'vouchers'  => intval($row['vouchers']),
                 'first'     => (string) $row['first_date'],
                 'last'      => (string) $row['last_date'],
