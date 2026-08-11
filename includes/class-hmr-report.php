@@ -192,9 +192,32 @@ class TGS_HMR_Report
         $thue = round((float) $r['tax_amount']);
 
         $thanh_tien = round($m['tien_hang_sau_ck'] + $thue);
-        $goc        = round($m['tien_hang_truoc_ck'] * (1 + $thue_pct / 100));
-        $gia_dvcb   = self::don_gia_lam_tron($goc, $qty, $thanh_tien);
-        $ck_hien    = max(0.0, $gia_dvcb * $qty - $thanh_tien);
+
+        /*
+         * ── ĐƠN GIÁ: BÊN MUA TRƯỚC THUẾ, BÊN BÁN SAU THUẾ ───────────────────
+         *
+         * Không phải bất nhất — hai bên vốn quen hai con số khác nhau:
+         *
+         *   MUA  nhà cung cấp báo giá trước thuế, hoá đơn đỏ cũng ghi trước
+         *        thuế, và phần mềm cũ hiện đúng như vậy (60 × 488.889 =
+         *        29.333.340 = cột "TT không VAT"). Tài liệu mô hình tiền cũng
+         *        nói luồng nhập gõ thẳng giá trước thuế, không quy đổi.
+         *
+         *   BÁN  bill và POS hiện giá khách trả, tức đã gồm thuế. Giữ nguyên
+         *        cách BC_TK đang làm để hai màn bán đặt cạnh nhau không lệch.
+         *
+         * Chỉ khác cách TRÌNH BÀY. Tiền lưu trong DB luôn là giá trước thuế, và
+         * Thành tiền / TT trước thuế / Thuế ở cả hai bên đều như nhau.
+         */
+        if (isset($r['doc_group']) && $r['doc_group'] === 'purchase') {
+            $gia_dvcb = round($price);
+            $ck_hien  = round($ck);
+        } else {
+            $goc      = round($m['tien_hang_truoc_ck'] * (1 + $thue_pct / 100));
+            $gia_dvcb = self::don_gia_lam_tron($goc, $qty, $thanh_tien);
+            /* CK suy ra sau cùng để dòng cộng khít: đơn giá × SL − thành tiền */
+            $ck_hien  = max(0.0, $gia_dvcb * $qty - $thanh_tien);
+        }
 
         /*
          * Dòng chỉ có giá trị, không có số lượng (chiết khấu doanh số, NCC bù

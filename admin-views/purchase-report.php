@@ -53,8 +53,8 @@ $hmr_today = current_time('Y-m-d');
                         <th class="c-sku">Số phiếu</th>
                         <th class="c-sku">Lý do</th>
                         <th class="c-num">Số lượng</th>
-                        <th class="c-num">Đơn giá</th>
-                        <th class="c-num">Chiết khấu</th>
+                        <th class="c-num" title="Đơn giá TRƯỚC thuế, theo đơn vị nhỏ nhất — đúng như giá nhà cung cấp báo và như phần mềm cũ hiển thị">Đơn giá</th>
+                        <th class="c-num" title="Chiết khấu của cả dòng, tính trên tiền TRƯỚC thuế">Chiết khấu</th>
                         <th class="c-num">Thành tiền</th>
                         <th class="c-num" title="Nhập cộng vào, trả nhà cung cấp trừ ra">Giá trị thuần</th>
                         <th class="c-num">Thuế</th>
