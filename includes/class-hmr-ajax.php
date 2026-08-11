@@ -18,6 +18,7 @@ class TGS_HMR_Ajax
     {
         add_action('wp_ajax_tgs_hmr_fetch_sales', [__CLASS__, 'fetch_sales']);
         add_action('wp_ajax_tgs_hmr_fetch_summary', [__CLASS__, 'fetch_summary']);
+        add_action('wp_ajax_tgs_hmr_fetch_stock', [__CLASS__, 'fetch_stock']);
         add_action('wp_ajax_tgs_hmr_voucher', [__CLASS__, 'fetch_voucher']);
         add_action('wp_ajax_tgs_hmr_refresh_nonce', [__CLASS__, 'refresh_nonce']);
     }
@@ -85,6 +86,40 @@ class TGS_HMR_Ajax
         $result = TGS_HMR_Report::summary_rows(self::filters());
 
         wp_send_json_success(['rows' => $result['rows']]);
+    }
+
+    /**
+     * Tồn kho theo mặt hàng — không có khoảng ngày.
+     *
+     * Tồn là ẢNH CHỤP tại lần nạp gần nhất, không phải phát sinh trong kỳ. Cho
+     * chọn ngày ở đây chỉ tạo cảm giác lọc được theo thời gian trong khi số
+     * chẳng đổi — người đọc sẽ tin nhầm là tồn của đúng ngày đó.
+     */
+    public static function fetch_stock()
+    {
+        self::guard();
+
+        /* Ô "Mã hàng" nhận nhiều mã, ngăn bằng dấu phẩy / khoảng trắng / xuống dòng */
+        $skus = isset($_POST['skus']) ? sanitize_textarea_field(wp_unslash((string) $_POST['skus'])) : '';
+        $skus = preg_split('/[\s,;]+/', $skus, -1, PREG_SPLIT_NO_EMPTY);
+
+        $result = TGS_HMR_Report::stock_rows([
+            'blog_ids'  => isset($_POST['blog_ids']) ? array_map('intval', (array) $_POST['blog_ids']) : [],
+            'zones'     => isset($_POST['zones']) ? array_map('sanitize_text_field', (array) $_POST['zones']) : [],
+            'skus'      => $skus,
+            'show_zero' => !empty($_POST['show_zero']),
+        ]);
+
+        if (!empty($result['error'])) {
+            wp_send_json_error(['message' => $result['error']]);
+        }
+
+        wp_send_json_success([
+            'rows'      => $result['rows'],
+            'total'     => $result['total'],
+            'limit'     => $result['limit'],
+            'truncated' => $result['truncated'],
+        ]);
     }
 
     public static function fetch_voucher()

@@ -231,6 +231,18 @@
             if (res && res.success && res.data) {
                 rows = res.data.rows || [];
                 render();
+
+                /*
+                 * Bảng bị cắt trông y hệt bảng đầy đủ. Không nói ra thì người
+                 * xem cộng dòng Tổng cộng rồi mang con số thiếu đi họp.
+                 */
+                if (res.data.truncated) {
+                    status('Mới lấy ' + nf.format(rows.length) + ' / '
+                        + nf.format(res.data.total) + ' dòng — hãy lọc bớt chi nhánh, mã kho '
+                        + 'hoặc nhập mã hàng để xem đủ.', true);
+                    return;
+                }
+
                 status(nf.format(rows.length) + ' dòng');
                 return;
             }

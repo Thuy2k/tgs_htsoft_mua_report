@@ -38,6 +38,143 @@ class TGS_HMR_Report
     }
 
     /**
+     * Bảng tồn theo kho — do plugin tgs_htsoft_purchase_analysis nạp.
+     *
+     * Màn này chỉ ĐỌC. Bảng chưa có (chưa nạp lần nào, hoặc plugin kia đang
+     * tắt) thì báo cáo phải nói rõ chứ không lỗi trắng màn.
+     */
+    public static function table_stock()
+    {
+        global $wpdb;
+        return $wpdb->base_prefix . 'global_htsoft_stock_zone';
+    }
+
+    public static function stock_ready()
+    {
+        global $wpdb;
+
+        $table = self::table_stock();
+
+        return $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
+    }
+
+    /**
+     * Tồn kho theo mặt hàng, lọc theo chi nhánh + mã kho.
+     *
+     * Không cần TGS_Money: đây là ảnh chụp tồn, không có công thức tiền nào để
+     * suy ra — mọi con số lấy thẳng như phần mềm cũ xuất ra.
+     */
+    /** Trần số dòng trả về một lần. Vượt là báo cho người xem biết đã bị cắt. */
+    const STOCK_LIMIT = 20000;
+
+    public static function stock_rows(array $filters)
+    {
+        global $wpdb;
+
+        if (!self::stock_ready()) {
+            return ['rows' => [], 'error' => 'Chưa có dữ liệu tồn kho. Vào Mua hàng → Công cụ → '
+                . 'Nhập Excel HTSoft, chọn loại "Tồn kho theo mặt hàng" để nạp trước.'];
+        }
+
+        $where  = [];
+        $params = [];
+
+        $blogs = isset($filters['blog_ids']) ? array_map('intval', (array) $filters['blog_ids']) : [];
+        if ($blogs) {
+            $where[] = 'blog_id IN (' . implode(',', array_fill(0, count($blogs), '%d')) . ')';
+            $params = array_merge($params, $blogs);
+        }
+
+        $zones = isset($filters['zones']) ? array_values(array_filter((array) $filters['zones'], 'strlen')) : [];
+        if ($zones) {
+            $where[] = 'zone_code IN (' . implode(',', array_fill(0, count($zones), '%s')) . ')';
+            $params = array_merge($params, $zones);
+        }
+
+        /*
+         * Lọc mã hàng NGAY TRONG SQL, không để ô lọc cột của bảng làm.
+         *
+         * Ô lọc trên đầu cột chỉ lọc trong số dòng ĐÃ tải về, mà bảng chỉ tải
+         * tối đa self::STOCK_LIMIT dòng trong khi kho có tới hàng trăm nghìn.
+         * Gõ một mã vào đó thì ra đúng những kho lọt vào phần đã tải, cộng lại
+         * thiếu so với màn Phân tích mua hàng — số sai mà nhìn rất thật.
+         */
+        $skus = [];
+        foreach ((array) (isset($filters['skus']) ? $filters['skus'] : []) as $sku) {
+            $sku = strtoupper(trim((string) $sku));
+            if ($sku !== '') {
+                $skus[] = $sku;
+            }
+        }
+
+        if ($skus) {
+            $where[] = 'UPPER(product_sku) IN (' . implode(',', array_fill(0, count($skus), '%s')) . ')';
+            $params  = array_merge($params, $skus);
+        }
+
+        /* Mặc định ẩn dòng tồn 0 và không đi đường: file xuất ra rất nhiều mã
+           như vậy, để lẫn vào thì người mua phải cuộn qua hàng nghìn dòng vô ích */
+        if (empty($filters['show_zero'])) {
+            $where[] = '(stock_qty <> 0 OR in_transit_qty <> 0 OR need_qty <> 0)';
+        }
+
+        $where_sql = $where ? implode(' AND ', $where) : '1=1';
+
+        /*
+         * Đếm trước khi cắt. Không có con số này thì bảng bị cắt ngắn trông y
+         * hệt bảng đầy đủ, người xem cộng dòng Tổng cộng rồi mang đi họp.
+         */
+        $total = (int) $wpdb->get_var(
+            $params
+                ? $wpdb->prepare('SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}", $params)
+                : 'SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}"
+        );
+
+        $limit    = isset($filters['limit']) ? intval($filters['limit']) : self::STOCK_LIMIT;
+        $params[] = $limit;
+
+        $sql = 'SELECT * FROM ' . self::table_stock() . " WHERE {$where_sql}
+                 ORDER BY zone_code ASC, stock_qty DESC LIMIT %d";
+
+        $raw = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+
+        $rows = [];
+        foreach ((array) $raw as $r) {
+            $stock   = (float) $r['stock_qty'];
+            $transit = (float) $r['in_transit_qty'];
+
+            $rows[] = [
+                'kho'        => (string) ($r['zone_raw'] !== '' ? $r['zone_raw'] : $r['zone_code']),
+                'chi_nhanh'  => (string) $r['branch_code'],
+                'sku'        => (string) $r['product_sku'],
+                'ten'        => (string) $r['product_name'],
+                'alias'      => (string) $r['product_alias'],
+                'dvt'        => (string) $r['dvt'],
+                'ton'        => $stock,
+                'gia'        => (float) $r['unit_price'],
+                'tien'       => (float) $r['amount'],
+                'gia_le'     => (float) $r['retail_price'],
+                'gia_buon'   => (float) $r['wholesale_price'],
+                'di_duong'   => $transit,
+                'ton_max'    => (float) $r['max_qty'],
+                'ton_min'    => (float) $r['min_qty'],
+                'can_nhap'   => (float) $r['need_qty'],
+                /* Tồn kể cả hàng đang về — con số người mua thật sự cần nhìn */
+                'ton_va_ve'  => $stock + $transit,
+                'theo_doi'   => intval($r['is_tracking']) === 1,
+                'cap_nhat'   => (string) $r['updated_at'],
+            ];
+        }
+
+        return [
+            'rows'      => $rows,
+            'total'     => $total,
+            'limit'     => $limit,
+            'truncated' => $total > count($rows),
+        ];
+    }
+
+    /**
      * kind => khối chứng từ.
      *
      * CỐ Ý khai lại thay vì gọi TGS_HMI_DB::kinds() của plugin nạp: hai plugin

@@ -188,6 +188,89 @@ class TGS_HMR_Sites
         ];
     }
 
+    /**
+     * Bộ lọc cho màn TỒN KHO — dựng từ bảng tồn, không phải bảng chứng từ.
+     *
+     * Hai nguồn khác nhau: một kho có thể có tồn mà chưa phát sinh phiếu nào
+     * trong khoảng ngày đang xem, và ngược lại. Dùng chung bộ lọc là mất kho.
+     */
+    public static function filter_bootstrap_stock()
+    {
+        global $wpdb;
+
+        if (!TGS_HMR_Report::stock_ready()) {
+            return ['sites' => [], 'zones' => [], 'empty' => true];
+        }
+
+        $rows = $wpdb->get_results(
+            'SELECT blog_id, zone_code, MIN(zone_raw) AS zone_raw, MIN(branch_code) AS branch_code,
+                    COUNT(*) AS items, MAX(updated_at) AS last_update
+               FROM ' . TGS_HMR_Report::table_stock() . '
+              GROUP BY blog_id, zone_code
+              ORDER BY blog_id ASC, zone_code ASC',
+            ARRAY_A
+        );
+
+        if (empty($rows)) {
+            return ['sites' => [], 'zones' => [], 'empty' => true];
+        }
+
+        $h = self::hierarchy();
+        $sites = [];
+        $zones = [];
+
+        foreach ($rows as $row) {
+            $blog_id  = intval($row['blog_id']);
+            $zone     = (string) $row['zone_code'];
+            $zone_raw = (string) ($row['zone_raw'] !== '' ? $row['zone_raw'] : $zone);
+            $branch   = (string) $row['branch_code'];
+
+            /* Kho chưa khớp website: mỗi mã một mục riêng để còn nhìn ra là kho
+               nào, y như bên báo cáo chứng từ */
+            $key = $blog_id > 0 ? (string) $blog_id : '0::' . $zone;
+
+            if (!isset($sites[$key])) {
+                $sites[$key] = [
+                    'key'       => $key,
+                    'blog_id'   => $blog_id,
+                    'code'      => $blog_id > 0 ? ($branch !== '' ? $branch : $zone_raw) : $zone_raw,
+                    'name'      => self::site_name($blog_id, $zone_raw, $h),
+                    'type'      => $blog_id && self::is_warehouse($blog_id) ? 'warehouse' : 'shop',
+                    'unmatched' => $blog_id === 0,
+                    'vouchers'  => 0,
+                ];
+                $zones[$key] = [];
+            }
+
+            $sites[$key]['vouchers'] += intval($row['items']);
+
+            $zones[$key][] = [
+                'zone_code' => $zone,
+                'label'     => $zone_raw,
+                'vouchers'  => intval($row['items']),
+                'last'      => (string) $row['last_update'],
+            ];
+        }
+
+        foreach ($sites as $key => $site) {
+            $sites[$key]['label'] = $site['code'] !== ''
+                ? $site['code'] . ' — ' . $site['name']
+                : $site['name'];
+        }
+
+        uasort($sites, static function ($a, $b) {
+            if ($a['unmatched'] !== $b['unmatched']) {
+                return $a['unmatched'] ? 1 : -1;
+            }
+            if ($a['unmatched']) {
+                return strnatcasecmp($a['code'], $b['code']);
+            }
+            return $a['blog_id'] - $b['blog_id'];
+        });
+
+        return ['sites' => array_values($sites), 'zones' => $zones, 'empty' => false];
+    }
+
     private static function site_name($blog_id, $code, $h)
     {
         /* Nhãn ngắn vì mã kho đã đứng ngay trước nó: "12001 — chưa khớp website" */

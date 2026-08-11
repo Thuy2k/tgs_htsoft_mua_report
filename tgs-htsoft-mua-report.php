@@ -3,7 +3,7 @@
  * Plugin Name: TGS HTsoft Mua — Báo cáo đối chiếu
  * Plugin URI: https://bizgpt.vn/
  * Description: Báo cáo bán hàng / tổng hợp bán hàng đọc từ bộ bảng _mua (dữ liệu kéo từ phần mềm cũ HTsoft). Bộ lọc chi nhánh + mã kho giống BC_TK, có modal xem lại từng phiếu.
- * Version: 1.1.3
+ * Version: 1.2.0
  * Author: BIZGPT_AI
  * License: GPL v2 or later
  * Text Domain: tgs-htsoft-mua-report
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 
 /* Bump khi sửa JS/CSS — số này đi vào ?ver= của asset, không tăng thì trình
    duyệt vẫn chạy file cũ đã cache */
-define('TGS_HMR_VERSION', '1.1.3');
+define('TGS_HMR_VERSION', '1.3.0');
 define('TGS_HMR_DIR', plugin_dir_path(__FILE__));
 define('TGS_HMR_URL', plugin_dir_url(__FILE__));
 
@@ -44,6 +44,7 @@ class TGS_HMR_Plugin
     const VIEW_SUMMARY  = 'hmr-sales-sum';
     const VIEW_BUY      = 'hmr-buy';
     const VIEW_BUY_SUM  = 'hmr-buy-sum';
+    const VIEW_STOCK    = 'hmr-stock';
 
     /** Màn nào thuộc khối MUA — quyết định bộ lọc và phạm vi truy vấn */
     public static function group_of_view($view)
@@ -71,6 +72,7 @@ class TGS_HMR_Plugin
             self::VIEW_SUMMARY => ['Tổng hợp bán hàng — Btsoft', 'Btsoft: Tổng hợp bán hàng', 'bx bx-list-check', 'sales-summary.php'],
             self::VIEW_BUY     => ['Báo cáo mua hàng — Btsoft', 'Btsoft: Báo cáo mua hàng', 'bx bx-cart-download', 'purchase-report.php'],
             self::VIEW_BUY_SUM => ['Tổng hợp mua hàng — Btsoft', 'Btsoft: Tổng hợp mua hàng', 'bx bx-list-check', 'purchase-summary.php'],
+            self::VIEW_STOCK   => ['Tồn kho theo mặt hàng — Btsoft', 'Btsoft: Tồn kho theo mặt hàng', 'bx bx-box', 'stock-report.php'],
         ];
     }
 

@@ -6,11 +6,14 @@
  * CHI NHÁNH, khối dưới đổ ra MÃ KHO của đúng những chi nhánh đang tích.
  *
  * @var array $hmr_boot
+ * @var bool  $hmr_sku_filter  Màn tồn kho bật thêm ô lọc theo mã hàng
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
+
+$hmr_sku_filter = !empty($hmr_sku_filter);
 ?>
 <aside class="hmr-filter" id="hmrFilter">
     <div class="hmr-filter__head">
@@ -68,6 +71,23 @@ if (!defined('ABSPATH')) {
                 <input type="search" class="hmr-search" id="hmrZoneSearch" placeholder="Lọc mã kho…">
                 <div class="hmr-list" id="hmrZoneList"></div>
             </div>
+
+            <?php if ($hmr_sku_filter) : ?>
+                <?php
+                /*
+                 * Lọc mã hàng phải nằm Ở ĐÂY chứ không phải ở ô lọc trên đầu
+                 * cột: ô đó chỉ lọc trong phần dữ liệu đã tải về, mà kho có tới
+                 * hàng trăm nghìn dòng nên bảng luôn bị cắt bớt. Gõ mã ở đây
+                 * thì truy vấn chạy trên TOÀN BỘ dữ liệu.
+                 */
+                ?>
+                <div class="hmr-group hmr-group--skus">
+                    <div class="hmr-group__title">Mã hàng</div>
+                    <textarea class="hmr-search hmr-skus" id="hmrSkus" rows="2"
+                              placeholder="VD: 100861007 — nhiều mã cách nhau bằng dấu phẩy"></textarea>
+                    <div class="hmr-hint">Bỏ trống là lấy tất cả mã.</div>
+                </div>
+            <?php endif; ?>
 
         <?php endif; ?>
     </div>
