@@ -1,0 +1,393 @@
+/*
+ * Bố cục bám BC_TK: bộ lọc trái hẹp và dày, bảng số liệu chiếm phần còn lại,
+ * chữ nhỏ để một màn chứa được nhiều dòng.
+ *
+ * Bảng màu CỐ Ý trùng với các báo cáo khác của hệ thống.
+ *
+ * Bản đầu dùng dải hổ phách để đánh dấu "dữ liệu phần mềm cũ". Nay chủ hệ thống
+ * chốt: giao diện phải thống nhất, người xem không cần phân biệt nguồn — nên đổi
+ * về màu chuẩn, chỉ còn nhãn nguồn nhỏ ở đầu bảng.
+ */
+
+.hmr-page {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    height: 78vh;
+    min-height: 420px;
+    font-size: 13px;
+}
+
+/* ── Bộ lọc trái ───────────────────────────────────────────────────────── */
+
+.hmr-filter {
+    flex: 0 0 232px;
+    width: 232px;
+    background: #fff;
+    border: 1px solid #dbe2ea;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hmr-filter__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: #f8fafc;
+    border-bottom: 1px solid #dbe2ea;
+    font-weight: 600;
+    color: #334155;
+}
+
+.hmr-collapse {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 4px;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #475569;
+}
+
+.hmr-filter__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px 10px;
+}
+
+/* Hai nhóm chia đôi chiều cao; basis 0 để tỉ lệ không nhảy theo số mục */
+.hmr-group--sites,
+.hmr-group--zones {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.hmr-group__title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.hmr-all {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+}
+
+.hmr-search {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.hmr-list {
+    flex: 1 1 auto;
+    min-height: 80px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.hmr-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.hmr-item:hover { background: #f1f5f9; }
+.hmr-item__label { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.hmr-count {
+    font-size: 10px;
+    color: #94a3b8;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 0 5px;
+}
+
+/* Mã kho chưa khớp website — vẫn chọn được, nhưng phải nhìn ra ngay là nhóm
+   cần xử lý (khai tgs_site_code hoặc đúng là kho tổng) */
+.hmr-item--unmatched .hmr-item__label { color: #b45309; }
+.hmr-item--unmatched .hmr-count { background: #fef3c7; color: #b45309; }
+
+.hmr-zone-head {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    padding: 4px 4px 2px;
+    border-top: 1px dashed #e2e8f0;
+    margin-top: 2px;
+}
+
+/* Nháy viền khi bấm Tìm kiếm mà chưa chọn mã kho — chỉ đúng chỗ cần thao tác */
+.hmr-flash .hmr-list {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .18);
+}
+
+.hmr-filter__foot {
+    flex: 0 0 auto;
+    padding: 8px 10px 10px;
+    border-top: 1px solid #dbe2ea;
+    background: #f8fafc;
+}
+
+.hmr-btn {
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.hmr-btn--primary { background: #1d4ed8; color: #fff; }
+.hmr-btn--primary:hover { background: #1e40af; }
+.hmr-btn--primary:disabled { background: #94a3b8; cursor: default; }
+
+.hmr-status { font-size: 11px; color: #64748b; margin-top: 6px; min-height: 14px; }
+.hmr-status--error { color: #b91c1c; font-weight: 600; }
+
+.hmr-note {
+    font-size: 12px;
+    color: #92400e;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    padding: 8px;
+    line-height: 1.5;
+}
+
+.hmr-page.is-collapsed .hmr-filter { flex-basis: 34px; width: 34px; }
+.hmr-page.is-collapsed .hmr-filter__body,
+.hmr-page.is-collapsed .hmr-filter__foot { display: none; }
+.hmr-page.is-collapsed .hmr-filter__head span { display: none; }
+
+/* ── Khối kết quả ──────────────────────────────────────────────────────── */
+
+.hmr-result {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid #dbe2ea;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hmr-result__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #dbe2ea;
+}
+
+.hmr-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: #334155; }
+
+.hmr-badge-src {
+    background: #1d4ed8;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    border-radius: 10px;
+    padding: 2px 8px;
+}
+
+.hmr-daterange { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; }
+.hmr-daterange input,
+.hmr-daterange select {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.hmr-count-label { font-size: 12px; color: #64748b; }
+
+.hmr-tablewrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+
+.hmr-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+
+.hmr-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f1f5f9;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 5px 7px;
+    text-align: left;
+    font-weight: 600;
+    color: #334155;
+}
+
+.hmr-table td { padding: 3px 7px; border-bottom: 1px solid #f1f5f9; }
+.hmr-table tbody tr:hover { background: #f8fafc; }
+
+.hmr-table .c-num { text-align: right; }
+.hmr-table .c-unit { text-align: center; }
+.hmr-table .c-name { max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+
+.hmr-table .neg { color: #b91c1c; }
+
+/* Dòng hàng trả lại — nhìn phát ra ngay, khỏi phải dò cột "Trả lại" */
+.hmr-row-return { background: #fff7ed; }
+.hmr-row-return:hover { background: #ffedd5; }
+
+/* Thành tiền của phần mềm cũ lệch với số tính lại → soi ngay */
+.hmr-diff { color: #b45309; font-weight: 700; }
+
+.hmr-warn {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    line-height: 15px;
+    text-align: center;
+    border-radius: 50%;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.hmr-empty td { text-align: center; color: #94a3b8; padding: 24px 8px; }
+
+.hmr-table tfoot td {
+    position: sticky;
+    bottom: 0;
+    background: #f1f5f9;
+    border-top: 1px solid #cbd5e1;
+    padding: 5px 7px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.hmr-hidden { display: none !important; }
+
+.hmr-mini {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 1px 6px;
+    cursor: pointer;
+    color: #1d4ed8;
+}
+
+.hmr-mini:hover { background: #eff6ff; }
+
+.hmr-voucher-link { color: #1d4ed8; text-decoration: none; }
+.hmr-voucher-link:hover { text-decoration: underline; }
+
+/* ── Modal xem lại phiếu ───────────────────────────────────────────────── */
+
+.hmr-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(15, 23, 42, .45);
+    padding: 24px;
+    overflow: auto;
+}
+
+.hmr-modal.is-open { display: block; }
+
+.hmr-modal__box {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, .25);
+}
+
+.hmr-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid #dbe2ea;
+    font-size: 14px;
+    color: #334155;
+}
+
+.hmr-modal__close {
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    color: #64748b;
+}
+
+.hmr-modal__body { padding: 14px; }
+.hmr-modal__loading { padding: 32px; text-align: center; color: #64748b; }
+
+.hmr-vch__meta {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px 14px;
+    margin-bottom: 12px;
+}
+
+.hmr-vch__meta div { font-size: 12px; }
+.hmr-vch__meta span { display: block; color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
+.hmr-vch__meta b { color: #0f172a; font-weight: 600; }
+.hmr-vch__meta i { color: #64748b; font-style: normal; }
+
+.hmr-vch__table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hmr-vch__table th {
+    background: #f1f5f9;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 5px 7px;
+    text-align: left;
+    color: #334155;
+}
+.hmr-vch__table td { padding: 4px 7px; border-bottom: 1px solid #f1f5f9; }
+.hmr-vch__table .c-num { text-align: right; }
+.hmr-vch__table .c-unit { text-align: center; }
+.hmr-vch__table tfoot td { background: #f8fafc; border-top: 1px solid #cbd5e1; font-weight: 700; }
+.hmr-vch__warn td { color: #b45309; background: #fffbeb; font-size: 11px; }
+
+.hmr-vch__note { margin-top: 10px; font-size: 11px; color: #94a3b8; }
+
+@media (max-width: 1100px) {
+    .hmr-vch__meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
