@@ -78,10 +78,15 @@ $hmr_today = current_time('Y-m-d');
                 </tbody>
                 <?php
                 /*
-                 * Số ô ở tfoot PHẢI bằng đúng 28 — số cột trong thead. Thiếu một
-                 * ô là mọi con số phía sau bị đẩy sang trái một cột: số vẫn đúng
-                 * nên nhìn lướt không thấy sai, chỉ đọc nhầm cột.
-                 * Cộng: 8 + 1 + 1 + 1 + 1 + 1 + 4 + 1 + 7 + 1 + 1 = 28
+                 * Số ô ở tfoot PHẢI bằng đúng 28 — số cột trong thead.
+                 *
+                 * Cộng: 8 + 1 + 1 + 1 + 1 + 1 + 5 + 1 + 7 + 1 + 1 = 28
+                 *                                ↑
+                 *                                Nhân viên…Trả lại (5 cột)
+                 *
+                 * Thiếu một ô là mọi con số phía sau chỗ hở bị đẩy sang TRÁI một
+                 * cột. Số vẫn đúng nên nhìn lướt không thấy sai, chỉ đọc nhầm
+                 * cột. Đã xảy ra thật ở màn mua.
                  */
                 ?>
                 <tfoot id="hmrFoot" class="hmr-hidden">
@@ -92,7 +97,7 @@ $hmr_today = current_time('Y-m-d');
                         <td class="c-num" id="fCk">0</td>
                         <td class="c-num" id="fTien">0</td>
                         <td class="c-num" id="fDoanhThu">0</td>
-                        <td colspan="4"></td>
+                        <td colspan="5"></td>
                         <td class="c-num" id="fThue">0</td>
                         <td colspan="7"></td>
                         <td class="c-num" id="fTruocThue">0</td>

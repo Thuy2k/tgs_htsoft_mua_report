@@ -76,7 +76,19 @@ $hmr_today = current_time('Y-m-d');
                 <tbody id="hmrBody">
                     <tr class="hmr-empty"><td colspan="28">Chọn chi nhánh bên trái, chọn khoảng ngày rồi bấm <strong>Tìm kiếm</strong>.</td></tr>
                 </tbody>
-                <?php /* Cộng cho khớp 28 cột: 9 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 10 + 1 + 1 */ ?>
+                <?php
+                /*
+                 * Số ô ở tfoot PHẢI bằng đúng 28 — số cột trong thead.
+                 *
+                 * Cộng: 9 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 11 + 1 = 28
+                 *       ↑                                  ↑
+                 *       Kho…Lý do                          NCC…Nhân viên
+                 *
+                 * Thiếu một ô là mọi con số phía sau chỗ hở bị đẩy sang TRÁI một
+                 * cột — tổng "TT gốc" nằm dưới "Nhân viên". Số vẫn đúng nên nhìn
+                 * lướt không thấy sai, chỉ đọc nhầm cột. Đã xảy ra thật.
+                 */
+                ?>
                 <tfoot id="hmrFoot" class="hmr-hidden">
                     <tr>
                         <td colspan="9">Tổng cộng</td>
@@ -87,7 +99,7 @@ $hmr_today = current_time('Y-m-d');
                         <td class="c-num" id="fDoanhThu">0</td>
                         <td class="c-num" id="fThue">0</td>
                         <td class="c-num" id="fTruocThue">0</td>
-                        <td colspan="10"></td>
+                        <td colspan="11"></td>
                         <td class="c-num" id="fGoc">0</td>
                     </tr>
                 </tfoot>

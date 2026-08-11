@@ -3,7 +3,7 @@
  * Plugin Name: TGS HTsoft Mua — Báo cáo đối chiếu
  * Plugin URI: https://bizgpt.vn/
  * Description: Báo cáo bán hàng / tổng hợp bán hàng đọc từ bộ bảng _mua (dữ liệu kéo từ phần mềm cũ HTsoft). Bộ lọc chi nhánh + mã kho giống BC_TK, có modal xem lại từng phiếu.
- * Version: 1.1.2
+ * Version: 1.1.3
  * Author: BIZGPT_AI
  * License: GPL v2 or later
  * Text Domain: tgs-htsoft-mua-report
@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 
 /* Bump khi sửa JS/CSS — số này đi vào ?ver= của asset, không tăng thì trình
    duyệt vẫn chạy file cũ đã cache */
-define('TGS_HMR_VERSION', '1.1.2');
+define('TGS_HMR_VERSION', '1.1.3');
 define('TGS_HMR_DIR', plugin_dir_path(__FILE__));
 define('TGS_HMR_URL', plugin_dir_url(__FILE__));
 
