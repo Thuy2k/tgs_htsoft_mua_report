@@ -160,6 +160,44 @@
         $(this).text($('#hmrPage').hasClass('is-collapsed') ? '»' : '«');
     });
 
+    /*
+     * Cao đúng bằng chỗ còn trống, đo chứ không đoán.
+     *
+     * CSS để 78vh — một con số áng chừng, không biết bảng bắt đầu ở đâu trên
+     * trang. Thanh admin, thanh mega nav, hàng tab, tiêu đề mỗi trang một khác,
+     * người dùng lại còn phóng to thu nhỏ; chênh bao nhiêu thì thừa ra bấy
+     * nhiêu khoảng trắng ở đáy. Đo từ vị trí thật rồi trừ thanh trạng thái cố
+     * định thì không bao giờ lệch.
+     *
+     * 78vh vẫn giữ trong CSS làm đường lui nếu JS chưa chạy.
+     */
+    function fitHeight() {
+        var page = document.getElementById('hmrPage');
+        if (!page) { return; }
+
+        page.style.height = '';
+        var top = page.getBoundingClientRect().top;
+
+        var bar = document.querySelector('.ds-statusbar');
+        var barH = bar ? bar.getBoundingClientRect().height : 0;
+
+        /* 10px thở dưới đáy cho khỏi dính sát thanh trạng thái */
+        var h = window.innerHeight - top - barH - 10;
+
+        page.style.height = Math.max(320, Math.round(h)) + 'px';
+    }
+
+    fitHeight();
+
+    /* Đo lại sau khi font/ảnh tải xong — lúc đó chiều cao phía trên mới chốt */
+    $(window).on('load', fitHeight);
+
+    var fitTimer = null;
+    $(window).on('resize', function () {
+        clearTimeout(fitTimer);
+        fitTimer = setTimeout(fitHeight, 120);
+    });
+
     // ── Chạy báo cáo ────────────────────────────────────────────────────────
 
     function refreshNonce() {

@@ -13,8 +13,12 @@
     display: flex;
     gap: 12px;
     align-items: stretch;
+    /* Đường lui thôi — fitHeight() trong hmr-report.js đo vị trí thật rồi ghi
+       đè bằng inline style. CSS không biết bảng bắt đầu ở đâu trên trang nên
+       mọi con số vh đều là ước chừng, lệch bao nhiêu thì thừa khoảng trắng ở
+       đáy bấy nhiêu. */
     height: 78vh;
-    min-height: 420px;
+    min-height: 320px;
     font-size: 13px;
 }
 

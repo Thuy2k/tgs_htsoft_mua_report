@@ -24,7 +24,7 @@ if (!defined('ABSPATH')) {
 
 /* Bump khi sửa JS/CSS — số này đi vào ?ver= của asset, không tăng thì trình
    duyệt vẫn chạy file cũ đã cache */
-define('TGS_HMR_VERSION', '1.3.0');
+define('TGS_HMR_VERSION', '1.3.1');
 define('TGS_HMR_DIR', plugin_dir_path(__FILE__));
 define('TGS_HMR_URL', plugin_dir_url(__FILE__));
 
