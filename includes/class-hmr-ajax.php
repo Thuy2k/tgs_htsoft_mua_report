@@ -108,6 +108,8 @@ class TGS_HMR_Ajax
             'zones'     => isset($_POST['zones']) ? array_map('sanitize_text_field', (array) $_POST['zones']) : [],
             'skus'      => $skus,
             'show_zero' => !empty($_POST['show_zero']),
+            /* Trình duyệt gọi lại nhiều lượt, mỗi lượt nối tiếp từ id cuối trang trước */
+            'after_id'  => isset($_POST['after_id']) ? intval($_POST['after_id']) : 0,
         ]);
 
         if (!empty($result['error'])) {
@@ -115,10 +117,9 @@ class TGS_HMR_Ajax
         }
 
         wp_send_json_success([
-            'rows'      => $result['rows'],
-            'total'     => $result['total'],
-            'limit'     => $result['limit'],
-            'truncated' => $result['truncated'],
+            'rows'    => $result['rows'],
+            'total'   => $result['total'],
+            'last_id' => $result['last_id'],
         ]);
     }
 

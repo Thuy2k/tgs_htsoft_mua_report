@@ -64,8 +64,14 @@ class TGS_HMR_Report
      * Không cần TGS_Money: đây là ảnh chụp tồn, không có công thức tiền nào để
      * suy ra — mọi con số lấy thẳng như phần mềm cũ xuất ra.
      */
-    /** Trần số dòng trả về một lần. Vượt là báo cho người xem biết đã bị cắt. */
-    const STOCK_LIMIT = 20000;
+    /**
+     * Số dòng mỗi TRANG, không phải trần dữ liệu.
+     *
+     * Trình duyệt gọi lại với offset tăng dần cho tới khi đủ `total`, nên tồn
+     * kho luôn lấy hết. Chia trang chỉ để một phản hồi không phình quá lớn —
+     * bảng render theo khung hình nên giữ bao nhiêu dòng cũng được.
+     */
+    const STOCK_PAGE = 20000;
 
     public static function stock_rows(array $filters)
     {
@@ -120,23 +126,41 @@ class TGS_HMR_Report
 
         $where_sql = $where ? implode(' AND ', $where) : '1=1';
 
-        /*
-         * Đếm trước khi cắt. Không có con số này thì bảng bị cắt ngắn trông y
-         * hệt bảng đầy đủ, người xem cộng dòng Tổng cộng rồi mang đi họp.
-         */
-        $total = (int) $wpdb->get_var(
-            $params
-                ? $wpdb->prepare('SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}", $params)
-                : 'SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}"
-        );
+        $limit    = isset($filters['limit']) ? intval($filters['limit']) : self::STOCK_PAGE;
+        $after_id = isset($filters['after_id']) ? max(0, intval($filters['after_id'])) : 0;
 
-        $limit    = isset($filters['limit']) ? intval($filters['limit']) : self::STOCK_LIMIT;
-        $params[] = $limit;
+        /* Đếm một lần ở trang đầu — để trình duyệt biết còn phải lấy bao nhiêu */
+        $total = 0;
+        if ($after_id === 0) {
+            $total = (int) $wpdb->get_var(
+                $params
+                    ? $wpdb->prepare('SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}", $params)
+                    : 'SELECT COUNT(*) FROM ' . self::table_stock() . " WHERE {$where_sql}"
+            );
+        }
+
+        /*
+         * Chia trang theo KHOÁ CHÍNH, không dùng OFFSET.
+         *
+         * OFFSET lớn bắt MySQL sắp xếp lại toàn bộ rồi vứt đi hàng trăm nghìn
+         * dòng đầu: đo thực tế trên 128.249 dòng là 5s ở trang đầu và 23s ở
+         * trang thứ sáu — tổng 103s. Lần theo `id > cuối trang trước` thì mỗi
+         * trang là một lượt quét theo chỉ mục, còn 0,3–0,7s.
+         *
+         * Đổi lại, thứ tự trả về là theo id chứ không theo kho. Việc xếp cho
+         * người xem chuyển sang trình duyệt, làm một lần sau khi đã lấy đủ —
+         * xếp 128.000 dòng bằng JS mất chưa tới một giây.
+         */
+        $where_sql .= ' AND id > %d';
+        $params[]   = $after_id;
+        $params[]   = $limit;
 
         $sql = 'SELECT * FROM ' . self::table_stock() . " WHERE {$where_sql}
-                 ORDER BY zone_code ASC, stock_qty DESC LIMIT %d";
+                 ORDER BY id ASC LIMIT %d";
 
         $raw = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+
+        $last_id = $raw ? (int) $raw[count($raw) - 1]['id'] : $after_id;
 
         $rows = [];
         foreach ((array) $raw as $r) {
@@ -167,10 +191,10 @@ class TGS_HMR_Report
         }
 
         return [
-            'rows'      => $rows,
-            'total'     => $total,
-            'limit'     => $limit,
-            'truncated' => $total > count($rows),
+            'rows'    => $rows,
+            'total'   => $total,
+            'limit'   => $limit,
+            'last_id' => $last_id,
         ];
     }
 

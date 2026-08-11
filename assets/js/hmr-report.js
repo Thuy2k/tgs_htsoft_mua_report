@@ -227,43 +227,93 @@
             Object.keys(extra).forEach(function (k) { data[k] = extra[k]; });
         }
 
-        $.post(CFG.ajaxUrl, data).done(function (res) {
-            if (res && res.success && res.data) {
-                rows = res.data.rows || [];
-                render();
+        /*
+         * Lấy ĐỦ, không cắt bớt — nhưng chia trang mà lấy.
+         *
+         * Bảng render theo khung hình nên giữ hàng trăm nghìn dòng vẫn mượt;
+         * cái không chịu nổi là dồn tất cả vào MỘT phản hồi. Nên máy chủ trả
+         * theo trang, trình duyệt nối lại và báo tiến độ để người dùng biết
+         * còn phải đợi bao lâu thay vì nhìn màn hình đứng im.
+         *
+         * Máy chủ trả kèm 'total' thì mới chia trang. Các màn chứng từ không
+         * trả nên chạy đúng một lượt như cũ.
+         */
+        var got = [];
+        var grandTotal = 0;
 
-                /*
-                 * Bảng bị cắt trông y hệt bảng đầy đủ. Không nói ra thì người
-                 * xem cộng dòng Tổng cộng rồi mang con số thiếu đi họp.
-                 */
-                if (res.data.truncated) {
-                    status('Mới lấy ' + nf.format(rows.length) + ' / '
-                        + nf.format(res.data.total) + ' dòng — hãy lọc bớt chi nhánh, mã kho '
-                        + 'hoặc nhập mã hàng để xem đủ.', true);
-                    return;
+        function page(afterId) {
+            var query = $.extend({}, data, { after_id: afterId });
+
+            return $.post(CFG.ajaxUrl, query).then(function (res) {
+                if (res && res.success && res.data) {
+                    var batch = res.data.rows || [];
+                    got = afterId ? got.concat(batch) : batch;
+
+                    /* Chỉ trang đầu trả total — các trang sau khỏi đếm lại */
+                    if (res.data.total) { grandTotal = res.data.total; }
+
+                    /* batch rỗng: chốt lại, nếu không sẽ quay vòng vô tận */
+                    if (grandTotal && got.length < grandTotal && batch.length) {
+                        status('Đang lấy ' + nf.format(got.length) + ' / ' + nf.format(grandTotal) + ' dòng…');
+                        return page(res.data.last_id);
+                    }
+
+                    return { rows: got, total: grandTotal || got.length };
                 }
 
-                status(nf.format(rows.length) + ' dòng');
-                return;
+                /* admin-ajax trả trần "0"/"-1" khi nonce hỏng hoặc mất phiên */
+                if ((res === 0 || res === '0' || res === -1 || res === '-1') && !isRetry) {
+                    return $.Deferred().reject({ needNonce: true }).promise();
+                }
+
+                return $.Deferred().reject({
+                    message: (res && res.data && res.data.message) || 'Máy chủ trả về dữ liệu không đọc được'
+                }).promise();
+            }, function (xhr) {
+                var st = xhr ? xhr.status : 0;
+
+                if ((st === 401 || st === 403) && !isRetry) {
+                    return $.Deferred().reject({ needNonce: true }).promise();
+                }
+
+                return $.Deferred().reject({
+                    message: st ? ('Máy chủ báo lỗi ' + st) : 'Mất kết nối tới máy chủ'
+                }).promise();
+            });
+        }
+
+        page(0).done(function (result) {
+            rows = result.rows;
+
+            /*
+             * Máy chủ trả theo id để chia trang cho nhanh, nên thứ tự hiển thị
+             * xếp ở đây — một lần, sau khi đã có đủ.
+             */
+            if (typeof CFG.sortRows === 'function' && rows.length) {
+                status('Đang sắp xếp ' + nf.format(rows.length) + ' dòng…');
+                rows.sort(CFG.sortRows);
             }
 
-            /* admin-ajax trả trần "0"/"-1" khi nonce hỏng hoặc mất phiên */
-            if ((res === 0 || res === '0' || res === -1 || res === '-1') && !isRetry) {
-                return refreshNonce().then(function () { running = false; run(true); },
-                    function () { status('Phiên đăng nhập đã hết hạn — tải lại trang.', true); });
+            render();
+            status(nf.format(rows.length) + ' dòng');
+            running = false;
+            $('#hmrSearch').prop('disabled', false);
+        }).fail(function (err) {
+            err = err || {};
+
+            if (err.needNonce) {
+                return refreshNonce().then(function () {
+                    running = false;
+                    $('#hmrSearch').prop('disabled', false);
+                    run(true);
+                }, function () {
+                    status('Phiên đăng nhập đã hết hạn — tải lại trang.', true);
+                    running = false;
+                    $('#hmrSearch').prop('disabled', false);
+                });
             }
 
-            status((res && res.data && res.data.message) || 'Máy chủ trả về dữ liệu không đọc được', true);
-        }).fail(function (xhr) {
-            var st = xhr ? xhr.status : 0;
-
-            if ((st === 401 || st === 403) && !isRetry) {
-                return refreshNonce().then(function () { running = false; run(true); },
-                    function () { status('Phiên đăng nhập đã hết hạn — tải lại trang.', true); });
-            }
-
-            status(st ? ('Máy chủ báo lỗi ' + st) : 'Mất kết nối tới máy chủ', true);
-        }).always(function () {
+            status(err.message || 'Không lấy được dữ liệu', true);
             running = false;
             $('#hmrSearch').prop('disabled', false);
         });

@@ -94,6 +94,11 @@ $hmr_sku_filter = true;
                 show_zero: document.getElementById('hmrShowZero').checked ? 1 : 0,
                 skus: (document.getElementById('hmrSkus') || {}).value || ''
             };
+        },
+        /* Gom theo kho, trong mỗi kho tồn nhiều xếp trước — giống phần mềm cũ */
+        sortRows: function (a, b) {
+            if (a.kho !== b.kho) { return a.kho < b.kho ? -1 : 1; }
+            return b.ton - a.ton;
         }
     };
 
