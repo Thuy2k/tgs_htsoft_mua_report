@@ -537,11 +537,35 @@
 
     // ── API cho trang ───────────────────────────────────────────────────────
 
+    /**
+     * Thứ tự hiển thị chuẩn của các màn mua/bán: ngày mới nhất trước, cùng ngày
+     * thì theo số phiếu, cùng phiếu thì theo id.
+     *
+     * Máy chủ trả dữ liệu theo `id` để chia trang cho nhanh — xem chú thích ở
+     * TGS_HMR_Report::sales_rows(). Đổi lại thứ tự cho người xem phải dựng lại
+     * tại đây, một lần sau khi đã lấy đủ.
+     *
+     * Cột `ngay` là chuỗi 'Y-m-d H:i:s' nên so sánh chuỗi ra đúng thứ tự thời
+     * gian, khỏi phải dựng Date cho từng dòng trong số hàng trăm nghìn dòng.
+     */
+    function sortByNgayPhieu(a, b) {
+        var da = a.ngay || '';
+        var db = b.ngay || '';
+        if (da !== db) { return da < db ? 1 : -1; }
+
+        var pa = a.pbh || '';
+        var pb = b.pbh || '';
+        if (pa !== pb) { return pa < pb ? -1 : 1; }
+
+        return (a.id || 0) - (b.id || 0);
+    }
+
     window.TGSHmr = {
         esc: esc,
         fmt: fmt,
         ngay: ngay,
         paint: paint,
+        sortByNgayPhieu: sortByNgayPhieu,
         setRenderer: function (fn) { renderer = fn; render(); }
     };
 })(jQuery);

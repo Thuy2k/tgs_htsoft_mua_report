@@ -89,6 +89,8 @@ $hmr_today = current_time('Y-m-d');
         group: 'purchase',
         sites: <?php echo wp_json_encode($hmr_boot['sites']); ?>,
         zones: <?php echo wp_json_encode($hmr_boot['zones']); ?>,
+        /* Máy chủ trả theo id để chia trang; thứ tự cho người xem dựng lại ở đây */
+        sortRows: function (a, b) { return window.TGSHmr.sortByNgayPhieu(a, b); },
         extraParams: function () {
             return { loai: document.getElementById('hmrKind').value, group: 'purchase' };
         }

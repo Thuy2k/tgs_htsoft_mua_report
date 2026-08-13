@@ -24,7 +24,18 @@ if (!defined('ABSPATH')) {
 
 /* Bump khi sửa JS/CSS — số này đi vào ?ver= của asset, không tăng thì trình
    duyệt vẫn chạy file cũ đã cache */
-define('TGS_HMR_VERSION', '1.3.1');
+/*
+ * ⚠️ TĂNG SỐ NÀY MỖI KHI SỬA assets/js hoặc assets/css.
+ *
+ * Nó là tham số version của wp_enqueue_script, tức thứ duy nhất bắt trình duyệt
+ * tải lại file. Quên tăng thì trình duyệt dùng bản cũ trong cache trong khi các
+ * file PHP đã là bản mới — hai bên lệch nhau, và lỗi hiện ra ở chỗ chẳng liên
+ * quan gì: đã gặp cảnh view gọi một hàm JS mới thêm, bản cache chưa có hàm đó
+ * nên bảng đứng im giữa chừng không báo gì.
+ *
+ * 1.4.0 — báo cáo mua/bán lấy hết dữ liệu bằng phân trang theo khoá chính.
+ */
+define('TGS_HMR_VERSION', '1.4.0');
 define('TGS_HMR_DIR', plugin_dir_path(__FILE__));
 define('TGS_HMR_URL', plugin_dir_url(__FILE__));
 

@@ -66,26 +66,48 @@ class TGS_HMR_Ajax
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : current_time('Y-m-d');
     }
 
+    /**
+     * Trình duyệt gọi lại nhiều lượt, mỗi lượt nối tiếp từ id cuối trang trước.
+     *
+     * Có `total` trong phản hồi thì hmr-report.js mới lặp; thiếu nó là bảng chỉ
+     * nhận đúng trang đầu rồi dừng, mà không báo gì — vẫn ra một bảng trông
+     * bình thường nhưng thiếu dữ liệu.
+     */
+    private static function paged_filters()
+    {
+        return self::filters() + [
+            'after_id' => isset($_POST['after_id']) ? intval($_POST['after_id']) : 0,
+        ];
+    }
+
     public static function fetch_sales()
     {
         self::guard();
 
-        $result = TGS_HMR_Report::sales_rows(self::filters());
+        $result = TGS_HMR_Report::sales_rows(self::paged_filters());
 
         if (!empty($result['error'])) {
             wp_send_json_error(['message' => $result['error']]);
         }
 
-        wp_send_json_success(['rows' => $result['rows']]);
+        wp_send_json_success([
+            'rows'    => $result['rows'],
+            'total'   => $result['total'],
+            'last_id' => $result['last_id'],
+        ]);
     }
 
     public static function fetch_summary()
     {
         self::guard();
 
-        $result = TGS_HMR_Report::summary_rows(self::filters());
+        $result = TGS_HMR_Report::summary_rows(self::paged_filters());
 
-        wp_send_json_success(['rows' => $result['rows']]);
+        wp_send_json_success([
+            'rows'    => $result['rows'],
+            'total'   => $result['total'],
+            'last_id' => $result['last_id'],
+        ]);
     }
 
     /**

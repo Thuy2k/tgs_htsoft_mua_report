@@ -73,6 +73,14 @@ class TGS_HMR_Report
      */
     const STOCK_PAGE = 20000;
 
+    /**
+     * Số dòng mỗi TRANG cho báo cáo chi tiết và tổng hợp mua/bán.
+     *
+     * Nhỏ hơn STOCK_PAGE vì mỗi dòng ở đây nặng hơn nhiều: có JOIN sang bảng
+     * phiếu, và build_row() còn dựng thêm cả chục con số tiền cho từng dòng.
+     */
+    const ROW_PAGE = 5000;
+
     public static function stock_rows(array $filters)
     {
         global $wpdb;
@@ -308,22 +316,54 @@ class TGS_HMR_Report
 
         list($where_sql, $params) = self::build_where('i', $filters);
 
+        /*
+         * Chia trang theo KHOÁ CHÍNH, giống hệt stock_rows() — xem chú thích dài
+         * ở đó về lý do không dùng OFFSET.
+         *
+         * Trước đây câu này cắt cứng ở 20.000 dòng. Trên khoảng ngày rộng thì
+         * người xem nhận về đúng 20.000 dòng mà KHÔNG có dấu hiệu gì báo là đã
+         * bị cắt — tổng tiền dưới chân bảng vẫn hiện ra, chỉ là thiếu. Kiểu sai
+         * đó nguy hiểm hơn hẳn báo lỗi thẳng.
+         *
+         * Đổi lại, thứ tự trả về theo `i.id` chứ không còn theo ngày. Việc xếp
+         * cho người xem chuyển sang trình duyệt, làm một lần sau khi đã lấy đủ
+         * (CFG.sortRows trong admin-views).
+         */
+        $limit    = isset($filters['limit']) ? intval($filters['limit']) : self::ROW_PAGE;
+        $after_id = isset($filters['after_id']) ? max(0, intval($filters['after_id'])) : 0;
+
+        /* Đếm một lần ở trang đầu — để trình duyệt biết còn phải lấy bao nhiêu */
+        $total = 0;
+        if ($after_id === 0) {
+            $total = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$item} i
+                   JOIN {$ledger} l ON l.id = i.ledger_id
+                  WHERE {$where_sql}",
+                $params
+            ));
+        }
+
+        $page_params   = $params;
+        $page_params[] = $after_id;
+        $page_params[] = $limit;
+
         $sql = "SELECT i.*, l.id AS ledger_id, l.voucher_date, l.raw_warehouse, l.site_code AS branch_code
                   FROM {$item} i
                   JOIN {$ledger} l ON l.id = i.ledger_id
-                 WHERE {$where_sql}
-                 ORDER BY i.row_date DESC, i.voucher_code, i.id
+                 WHERE {$where_sql} AND i.id > %d
+                 ORDER BY i.id ASC
                  LIMIT %d";
-        $params[] = isset($filters['limit']) ? intval($filters['limit']) : 20000;
 
-        $raw = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+        $raw = $wpdb->get_results($wpdb->prepare($sql, $page_params), ARRAY_A);
+
+        $last_id = $raw ? (int) $raw[count($raw) - 1]['id'] : $after_id;
 
         $rows = [];
         foreach ((array) $raw as $r) {
             $rows[] = self::build_row($r);
         }
 
-        return ['rows' => $rows];
+        return ['rows' => $rows, 'total' => $total, 'last_id' => $last_id];
     }
 
     /**
@@ -472,13 +512,30 @@ class TGS_HMR_Report
         $ledger = self::table_ledger();
         list($where_sql, $params) = self::build_where('l', $filters);
 
-        $sql = "SELECT l.* FROM {$ledger} l
-                 WHERE {$where_sql}
-                 ORDER BY l.voucher_date DESC, l.voucher_code
-                 LIMIT %d";
-        $params[] = isset($filters['limit']) ? intval($filters['limit']) : 20000;
+        /* Chia trang theo khoá chính — cùng lý do với sales_rows() */
+        $limit    = isset($filters['limit']) ? intval($filters['limit']) : self::ROW_PAGE;
+        $after_id = isset($filters['after_id']) ? max(0, intval($filters['after_id'])) : 0;
 
-        $raw = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
+        $total = 0;
+        if ($after_id === 0) {
+            $total = (int) $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$ledger} l WHERE {$where_sql}",
+                $params
+            ));
+        }
+
+        $page_params   = $params;
+        $page_params[] = $after_id;
+        $page_params[] = $limit;
+
+        $sql = "SELECT l.* FROM {$ledger} l
+                 WHERE {$where_sql} AND l.id > %d
+                 ORDER BY l.id ASC
+                 LIMIT %d";
+
+        $raw = $wpdb->get_results($wpdb->prepare($sql, $page_params), ARRAY_A);
+
+        $last_id = $raw ? (int) $raw[count($raw) - 1]['id'] : $after_id;
 
         $rows = [];
         foreach ((array) $raw as $r) {
@@ -525,7 +582,7 @@ class TGS_HMR_Report
             ];
         }
 
-        return ['rows' => $rows];
+        return ['rows' => $rows, 'total' => $total, 'last_id' => $last_id];
     }
 
     // =========================================================================
